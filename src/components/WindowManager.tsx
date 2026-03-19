@@ -14,9 +14,32 @@ const THEMES = [
   { id: 'dark', name: '极客深色', mode: 'dark' },
 ];
 
+import { get, set } from 'idb-keyval';
+
 export const WindowManager: React.FC = () => {
   const [windows, setWindows] = useState<MarkdownWindow[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    const initStorage = async () => {
+      try {
+        const savedWindows = await get('mdpre_windows');
+        if (savedWindows && Array.isArray(savedWindows)) {
+          setWindows(savedWindows);
+        }
+        const savedActiveId = localStorage.getItem('mdpre_active_id');
+        if (savedActiveId) {
+          setActiveId(savedActiveId);
+        }
+      } catch (e) {
+        console.error('Failed to init from IDB', e);
+      } finally {
+        setIsInitialized(true);
+      }
+    };
+    initStorage();
+  }, []);
 
   // Theme support
   const [theme, setTheme] = useState(() => {
@@ -27,6 +50,21 @@ export const WindowManager: React.FC = () => {
 
   // Context Menu support
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, tabId: string } | null>(null);
+
+  // Persist State to LocalStorage and IDB
+  useEffect(() => {
+    if (!isInitialized) return;
+    try {
+      set('mdpre_windows', windows).catch(e => console.error('Failed to save to IDB', e));
+      if (activeId) {
+        localStorage.setItem('mdpre_active_id', activeId);
+      } else {
+        localStorage.removeItem('mdpre_active_id');
+      }
+    } catch (e) {
+      console.warn('Failed to persist window state', e);
+    }
+  }, [windows, activeId, isInitialized]);
 
   useEffect(() => {
     const currentTheme = THEMES.find(t => t.id === theme) || THEMES[0];
@@ -59,12 +97,12 @@ export const WindowManager: React.FC = () => {
     return title.length > 20 ? title.substring(0, 20) + '...' : title;
   };
 
-  const addWindow = (title: string, content: string) => {
+  const addWindow = (title: string, handle: any) => {
     const newId = generateId();
     const newWindow: MarkdownWindow = {
       id: newId,
       title,
-      content,
+      handle,
     };
 
     setWindows(prev => [...prev, newWindow]);
@@ -181,7 +219,7 @@ export const WindowManager: React.FC = () => {
       <main className="main-content">
         {activeWindow ? (
           <div className="fullscreen-viewer animate-fade-in">
-            <MarkdownViewer content={activeWindow.content} />
+            <MarkdownViewer handle={activeWindow.handle} />
           </div>
         ) : (
           <div className="empty-state">

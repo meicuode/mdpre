@@ -3,7 +3,7 @@ import { UploadCloud } from 'lucide-react';
 import './Dropzone.css';
 
 interface DropzoneProps {
-  onFileDrop: (title: string, content: string) => void;
+  onFileDrop: (title: string, handle: any) => void;
 }
 
 export const Dropzone: React.FC<DropzoneProps> = ({ onFileDrop }) => {
@@ -33,19 +33,31 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFileDrop }) => {
       e.preventDefault();
       setIsDragging(false);
 
-      if (e.dataTransfer?.files) {
-        Array.from(e.dataTransfer.files).forEach(file => {
-          if (file.name.endsWith('.md') || file.type.includes('markdown') || file.type === 'text/plain') {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              const content = event.target?.result as string;
-              if (typeof content === 'string') {
-                onFileDrop(file.name, content);
+      if (e.dataTransfer?.items) {
+        // Use DataTransferItemList interface to access the file(s)
+        Array.from(e.dataTransfer.items).forEach(async (item) => {
+          // If dropped items aren't files, reject them
+          if (item.kind === 'file') {
+            try {
+              // using @ts-ignore because getAsFileSystemHandle is relatively new and might not be in standard definitions
+              // @ts-ignore
+              const handle = await item.getAsFileSystemHandle();
+              if (handle && handle.kind === 'file') {
+                const file = await handle.getFile();
+                if (file.name.endsWith('.md') || file.type.includes('markdown') || file.type === 'text/plain') {
+                  onFileDrop(file.name, handle);
+                } else {
+                  alert('仅支持 Markdown (.md) 格式的文件');
+                }
               }
-            };
-            reader.readAsText(file);
-          } else {
-            alert('仅支持 Markdown (.md) 格式的文件');
+            } catch (error) {
+              console.error('Failed to get file handle', error);
+              // Fallback if getAsFileSystemHandle is unsupported
+              const file = item.getAsFile();
+              if (file && (file.name.endsWith('.md') || file.type.includes('markdown') || file.type === 'text/plain')) {
+                alert('您的浏览器不支持直接读取文件句柄，请使用基于 Chrome/Edge 等现代内核的浏览器。');
+              }
+            }
           }
         });
       }
