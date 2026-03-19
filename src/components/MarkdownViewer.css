@@ -6,10 +6,8 @@
   padding: 24px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .markdown-body {
-    color: #f0f0f0;
-  }
+body[data-mode='dark'] .markdown-body {
+  color: #f0f0f0;
 }
 
 .markdown-body h1,
@@ -25,8 +23,13 @@
 }
 
 .markdown-body h1, .markdown-body h2 {
-  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   padding-bottom: 0.3em;
+}
+
+body[data-mode='dark'] .markdown-body h1, 
+body[data-mode='dark'] .markdown-body h2 {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .markdown-body p,
@@ -49,6 +52,10 @@
   text-decoration: underline;
 }
 
+body[data-mode='dark'] .markdown-body a {
+  color: #63b3ed;
+}
+
 .markdown-body img {
   max-width: 100%;
   border-radius: 8px;
@@ -58,13 +65,18 @@
 .markdown-body code {
   font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
   font-size: 14px;
-  background-color: rgba(128, 128, 128, 0.1);
+  background-color: rgba(0, 0, 0, 0.05);
   padding: 0.2em 0.4em;
   border-radius: 6px;
 }
 
+body[data-mode='dark'] .markdown-body code {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
 .markdown-body pre {
   background-color: #282c34 !important;
+  color: #abb2bf !important;
   border-radius: 8px;
   padding: 16px;
   overflow: auto;
@@ -72,16 +84,21 @@
 }
 
 .markdown-body pre code {
-  background-color: transparent;
+  background-color: transparent !important;
   padding: 0;
   border-radius: 0;
-  color: inherit;
+  color: inherit !important;
 }
 
 .markdown-body blockquote {
   padding: 0 1em;
   color: #6a737d;
   border-left: 0.25em solid #dfe2e5;
+}
+
+body[data-mode='dark'] .markdown-body blockquote {
+  color: #a0aec0;
+  border-left: 0.25em solid #4a5568;
 }
 
 .markdown-body table {
@@ -94,9 +111,18 @@
 .markdown-body table th,
 .markdown-body table td {
   padding: 8px 13px;
-  border: 1px solid rgba(128, 128, 128, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+body[data-mode='dark'] .markdown-body table th,
+body[data-mode='dark'] .markdown-body table td {
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .markdown-body table tr:nth-child(2n) {
-  background-color: rgba(128, 128, 128, 0.05);
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+body[data-mode='dark'] .markdown-body table tr:nth-child(2n) {
+  background-color: rgba(255, 255, 255, 0.03);
 }

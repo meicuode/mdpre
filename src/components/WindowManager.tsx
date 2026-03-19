@@ -1,81 +1,195 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MarkdownWindow } from '../types';
-import { Window } from './Window';
 import { Dropzone } from './Dropzone';
+import { MarkdownViewer } from './MarkdownViewer';
+import { X, Palette } from 'lucide-react';
+import './AppLayout.css';
+
+const THEMES = [
+  { id: 'classic-dark', name: '幻彩深色 (默认)', mode: 'dark' },
+  { id: 'classic', name: '幻彩浅色', mode: 'light' },
+  { id: 'light', name: '极简亮白', mode: 'light' },
+  { id: 'green', name: '清新淡绿', mode: 'light' },
+  { id: 'purple', name: '优雅淡紫', mode: 'light' },
+  { id: 'dark', name: '极客深色', mode: 'dark' },
+];
 
 export const WindowManager: React.FC = () => {
   const [windows, setWindows] = useState<MarkdownWindow[]>([]);
-  const [zIndexCounter, setZIndexCounter] = useState(10);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
-  const spawnOffset = 30; // 偏移量，防止新开窗口重叠
+  // Theme support
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('mdpre_theme') || 'classic-dark';
+  });
+  const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const themeRef = useRef<HTMLDivElement>(null);
+
+  // Context Menu support
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, tabId: string } | null>(null);
+
+  useEffect(() => {
+    const currentTheme = THEMES.find(t => t.id === theme) || THEMES[0];
+    document.body.dataset.theme = theme;
+    document.body.dataset.mode = currentTheme.mode;
+    localStorage.setItem('mdpre_theme', theme);
+  }, [theme]);
+
+  // Click outside listener for menus
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
+        setShowThemeMenu(false);
+      }
+      setContextMenu(null);
+    };
+
+    window.addEventListener('click', handleClickOutside);
+    window.addEventListener('blur', () => setContextMenu(null));
+    
+    return () => {
+      window.removeEventListener('click', handleClickOutside);
+      window.removeEventListener('blur', () => setContextMenu(null));
+    };
+  }, []);
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
-  const bringToFront = (id: string) => {
-    setWindows(prev => {
-      const highestZIndex = Math.max(...prev.map(w => w.zIndex), zIndexCounter);
-      setZIndexCounter(highestZIndex + 1);
-
-      return prev.map(w => w.id === id ? { ...w, zIndex: highestZIndex + 1 } : w);
-    });
+  const formatTitle = (title: string) => {
+    return title.length > 20 ? title.substring(0, 20) + '...' : title;
   };
 
   const addWindow = (title: string, content: string) => {
-    const existingCount = windows.length;
-    const x = Math.max(10, window.innerWidth / 2 - 400 + (existingCount * spawnOffset) % 200);
-    const y = Math.max(10, window.innerHeight / 2 - 300 + (existingCount * spawnOffset) % 200);
-
+    const newId = generateId();
     const newWindow: MarkdownWindow = {
-      id: generateId(),
+      id: newId,
       title,
       content,
-      x,
-      y,
-      width: Math.min(800, window.innerWidth - 40),
-      height: Math.min(600, window.innerHeight - 40),
-      zIndex: zIndexCounter + 1,
-      isMaximized: false,
-      isMinimized: false,
     };
 
-    setZIndexCounter(prev => prev + 1);
     setWindows(prev => [...prev, newWindow]);
+    setActiveId(newId);
   };
 
-  const removeWindow = (id: string) => {
-    setWindows(prev => prev.filter(w => w.id !== id));
+  const removeWindow = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    
+    setWindows(prev => {
+      const filtered = prev.filter(w => w.id !== id);
+      if (id === activeId) {
+        if (filtered.length > 0) {
+          setActiveId(filtered[filtered.length - 1].id);
+        } else {
+          setActiveId(null);
+        }
+      }
+      return filtered;
+    });
   };
+
+  const handleContextMenu = (e: React.MouseEvent, tabId: string) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      tabId,
+    });
+  };
+
+  const closeOthers = (id: string) => {
+    setWindows(prev => prev.filter(w => w.id === id));
+    setActiveId(id);
+    setContextMenu(null);
+  };
+
+  const closeAll = () => {
+    setWindows([]);
+    setActiveId(null);
+    setContextMenu(null);
+  };
+
+  const activeWindow = windows.find(w => w.id === activeId);
 
   return (
-    <>
+    <div className="app-container">
       <Dropzone onFileDrop={addWindow} />
       
-      {windows.map(win => (
-        <Window 
-          key={win.id}
-          window={win}
-          onClose={removeWindow}
-          onFocus={bringToFront}
-        />
-      ))}
-      
-      {windows.length === 0 && (
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '16px',
-          color: 'rgba(128, 128, 128, 0.7)',
-          pointerEvents: 'none'
-        }}>
-          <h1 style={{ fontFamily: 'Inter', fontWeight: 700, margin: 0 }}>Markdown Preview</h1>
-          <p style={{ fontFamily: 'Inter', fontSize: '18px' }}>拖拽 Markdown 文件至此以开始阅览</p>
+      {windows.length > 0 && (
+        <nav className="top-nav">
+          <div className="theme-selector-container" ref={themeRef}>
+            <button 
+              className="theme-btn" 
+              onClick={() => setShowThemeMenu(!showThemeMenu)}
+              title="切换主题颜色"
+            >
+              <Palette size={20} strokeWidth={2} />
+            </button>
+            {showThemeMenu && (
+              <div className="theme-dropdown">
+                {THEMES.map(t => (
+                  <button 
+                    key={t.id} 
+                    className="theme-dropdown-item"
+                    style={{ fontWeight: t.id === theme ? 600 : 400 }}
+                    onClick={() => {
+                      setTheme(t.id);
+                      setShowThemeMenu(false);
+                    }}
+                  >
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <div className="nav-tabs">
+            {windows.map(win => (
+              <div 
+                key={win.id} 
+                className={`nav-tab ${win.id === activeId ? 'active' : ''}`}
+                onClick={() => setActiveId(win.id)}
+                onContextMenu={(e) => handleContextMenu(e, win.id)}
+                title={win.title}
+              >
+                <span className="tab-title">{formatTitle(win.title)}</span>
+                <button 
+                  className="tab-close-btn" 
+                  onClick={(e) => removeWindow(win.id, e)}
+                  title="关闭"
+                >
+                  <X size={14} strokeWidth={2.5} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </nav>
+      )}
+
+      {/* Context Menu Modal */}
+      {contextMenu && (
+        <div 
+          className="context-menu" 
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button className="context-menu-item" onClick={() => closeOthers(contextMenu.tabId)}>关闭其他全部</button>
+          <button className="context-menu-item" onClick={closeAll}>关闭全部</button>
         </div>
       )}
-    </>
+      
+      <main className="main-content">
+        {activeWindow ? (
+          <div className="fullscreen-viewer animate-fade-in">
+            <MarkdownViewer content={activeWindow.content} />
+          </div>
+        ) : (
+          <div className="empty-state">
+            <h1 className="empty-title">Markdown Preview</h1>
+            <p className="empty-subtitle">拖拽 Markdown 文件至此以开始全屏预览</p>
+          </div>
+        )}
+      </main>
+    </div>
   );
 };
