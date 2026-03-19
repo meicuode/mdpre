@@ -72,7 +72,12 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle }) => {
     const preElements = containerRef.current.querySelectorAll('pre');
     
     preElements.forEach((pre: HTMLElement) => {
-      if (pre.querySelector('.copy-btn')) return;
+      if (pre.parentElement?.classList.contains('code-wrapper')) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'code-wrapper';
+      pre.parentNode?.insertBefore(wrapper, pre);
+      wrapper.appendChild(pre);
 
       const btn = document.createElement('button');
       btn.className = 'copy-btn';
@@ -90,7 +95,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle }) => {
         });
       };
       
-      pre.appendChild(btn);
+      wrapper.appendChild(btn);
     });
   }, [html]);
 
