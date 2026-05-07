@@ -6,10 +6,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="基于本地浏览器 API 和 CF Pages 构建的 Markdown 纯前端全景预览器。安全地对系统文稿执行 Drag & Drop 无服务端快速预览。" />
     <link rel="repository" href="https://github.com/meicuode/mdpre" />
+    <link rel="manifest" href="/manifest.json" />
     <title>MarkDown本地预览器</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MarkdownWindow } from '../types';
 import { Dropzone } from './Dropzone';
 import { MarkdownViewer } from './MarkdownViewer';
 import { X, Palette } from 'lucide-react';
+import { get, set } from 'idb-keyval';
 import './AppLayout.css';
 
 const THEMES = [
@@ -14,12 +15,11 @@ const THEMES = [
   { id: 'dark', name: '极客深色', mode: 'dark' },
 ];
 
-import { get, set } from 'idb-keyval';
-
 export const WindowManager: React.FC = () => {
   const [windows, setWindows] = useState<MarkdownWindow[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [refreshKeys, setRefreshKeys] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const initStorage = async () => {
@@ -84,7 +84,7 @@ export const WindowManager: React.FC = () => {
 
     window.addEventListener('click', handleClickOutside);
     window.addEventListener('blur', () => setContextMenu(null));
-    
+
     return () => {
       window.removeEventListener('click', handleClickOutside);
       window.removeEventListener('blur', () => setContextMenu(null));
@@ -111,7 +111,7 @@ export const WindowManager: React.FC = () => {
 
   const removeWindow = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    
+
     setWindows(prev => {
       const filtered = prev.filter(w => w.id !== id);
       if (id === activeId) {
@@ -146,17 +146,22 @@ export const WindowManager: React.FC = () => {
     setContextMenu(null);
   };
 
+  const refreshTab = useCallback((id: string) => {
+    setRefreshKeys(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
+    setContextMenu(null);
+  }, []);
+
   const activeWindow = windows.find(w => w.id === activeId);
 
   return (
     <div className="app-container">
       <Dropzone onFileDrop={addWindow} />
-      
+
       {windows.length > 0 && (
         <nav className="top-nav">
           <div className="theme-selector-container" ref={themeRef}>
-            <button 
-              className="theme-btn" 
+            <button
+              className="theme-btn"
               onClick={() => setShowThemeMenu(!showThemeMenu)}
               title="切换主题颜色"
             >
@@ -165,8 +170,8 @@ export const WindowManager: React.FC = () => {
             {showThemeMenu && (
               <div className="theme-dropdown">
                 {THEMES.map(t => (
-                  <button 
-                    key={t.id} 
+                  <button
+                    key={t.id}
                     className="theme-dropdown-item"
                     style={{ fontWeight: t.id === theme ? 600 : 400 }}
                     onClick={() => {
@@ -180,19 +185,19 @@ export const WindowManager: React.FC = () => {
               </div>
             )}
           </div>
-          
+
           <div className="nav-tabs">
             {windows.map(win => (
-              <div 
-                key={win.id} 
+              <div
+                key={win.id}
                 className={`nav-tab ${win.id === activeId ? 'active' : ''}`}
                 onClick={() => setActiveId(win.id)}
                 onContextMenu={(e) => handleContextMenu(e, win.id)}
                 title={win.title}
               >
                 <span className="tab-title">{formatTitle(win.title)}</span>
-                <button 
-                  className="tab-close-btn" 
+                <button
+                  className="tab-close-btn"
                   onClick={(e) => removeWindow(win.id, e)}
                   title="关闭"
                 >
@@ -206,20 +211,26 @@ export const WindowManager: React.FC = () => {
 
       {/* Context Menu Modal */}
       {contextMenu && (
-        <div 
-          className="context-menu" 
+        <div
+          className="context-menu"
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >
+          <button className="context-menu-item" onClick={() => refreshTab(contextMenu.tabId)}>刷新当前文档</button>
+          <div className="context-menu-divider"></div>
           <button className="context-menu-item" onClick={() => closeOthers(contextMenu.tabId)}>关闭其他全部</button>
           <button className="context-menu-item" onClick={closeAll}>关闭全部</button>
         </div>
       )}
-      
+
       <main className="main-content">
         {activeWindow ? (
           <div className="fullscreen-viewer animate-fade-in">
-            <MarkdownViewer handle={activeWindow.handle} />
+            <MarkdownViewer
+              key={`viewer-${activeWindow.id}-${refreshKeys[activeWindow.id] || 0}`}
+              handle={activeWindow.handle}
+              themeMode={(THEMES.find(t => t.id === theme) || THEMES[0]).mode as 'light' | 'dark'}
+            />
           </div>
         ) : (
           <div className="empty-state">

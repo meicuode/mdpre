@@ -1,0 +1,17 @@
+{
+  "name": "MarkDown本地预览器",
+  "short_name": "MD预览",
+  "description": "基于浏览器的纯前端 Markdown 本地文件预览器",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0c29",
+  "theme_color": "#302b63",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

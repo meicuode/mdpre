@@ -184,3 +184,38 @@ body[data-mode='dark'] .markdown-body table td {
 body[data-mode='dark'] .markdown-body table tr:nth-child(2n) {
   background-color: rgba(255, 255, 255, 0.03);
 }
+
+/* Mermaid diagram styles */
+.mermaid-block {
+  display: flex;
+  justify-content: center;
+  margin: 24px 0;
+  padding: 24px 16px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  overflow-x: auto;
+}
+
+.mermaid-block svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-rendered {
+  background: transparent;
+  border: none;
+}
+
+body[data-mode='dark'] .mermaid-block {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.mermaid-error {
+  color: #e53e3e;
+  font-size: 13px;
+  background: rgba(229, 62, 62, 0.1) !important;
+  border-radius: 8px;
+  padding: 12px !important;
+}
