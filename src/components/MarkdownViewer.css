@@ -202,11 +202,6 @@ body[data-mode='dark'] .markdown-body table tr:nth-child(2n) {
   height: auto;
 }
 
-.mermaid-rendered {
-  background: transparent;
-  border: none;
-}
-
 body[data-mode='dark'] .mermaid-block {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.08);
@@ -218,4 +213,147 @@ body[data-mode='dark'] .mermaid-block {
   background: rgba(229, 62, 62, 0.1) !important;
   border-radius: 8px;
   padding: 12px !important;
+}
+
+/* Mermaid expand button — positioned top-right */
+.mermaid-expand-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  color: #475569;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s, color 0.2s, box-shadow 0.2s;
+  z-index: 5;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.mermaid-block:hover .mermaid-expand-btn {
+  opacity: 1;
+}
+
+.mermaid-expand-btn:hover {
+  background: #fff;
+  color: #1e293b;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+body[data-mode='dark'] .mermaid-expand-btn {
+  background: rgba(30, 41, 59, 0.85);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+body[data-mode='dark'] .mermaid-expand-btn:hover {
+  background: rgba(51, 65, 85, 0.95);
+  color: #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+/* Fullscreen diagram modal */
+.diagram-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.diagram-modal-content {
+  width: 92vw;
+  height: 88vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.diagram-modal-svg {
+  transition: none;
+  transform-origin: center center;
+}
+
+.diagram-modal-svg svg {
+  max-width: none;
+  max-height: none;
+}
+
+/* Zoom toolbar */
+.diagram-modal-toolbar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(30, 30, 30, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 6px 10px;
+  z-index: 10001;
+}
+
+.diagram-modal-toolbar button {
+  background: transparent;
+  border: none;
+  color: #e2e8f0;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.diagram-modal-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.diagram-zoom-label {
+  color: #94a3b8;
+  font-family: 'Inter', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 48px;
+  text-align: center;
+  user-select: none;
+}
+
+.diagram-close-btn {
+  margin-left: 8px;
+  color: #f87171 !important;
+}
+
+.diagram-close-btn:hover {
+  background: rgba(248, 113, 113, 0.2) !important;
 }

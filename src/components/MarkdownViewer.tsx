@@ -13,7 +13,6 @@ const MERMAID_LIGHT_THEME = {
     secondaryTextColor: '#333',
     lineColor: '#4a5568',
     textColor: '#1a1a2e',
-    // Sequence diagram
     signalColor: '#2d3748',
     signalTextColor: '#1a1a2e',
     actorTextColor: '#ffffff',
@@ -26,13 +25,11 @@ const MERMAID_LIGHT_THEME = {
     activationBkgColor: '#e2e8f0',
     activationBorderColor: '#a0aec0',
     sequenceNumberColor: '#ffffff',
-    // Node/flowchart
     primaryColor: '#dbeafe',
     primaryBorderColor: '#3b82f6',
     secondaryColor: '#e0e7ff',
     secondaryBorderColor: '#6366f1',
     tertiaryColor: '#f0fdf4',
-    // Background
     background: '#ffffff',
     mainBkg: '#dbeafe',
     nodeBkg: '#dbeafe',
@@ -53,7 +50,6 @@ const MERMAID_DARK_THEME = {
     secondaryTextColor: '#cbd5e1',
     lineColor: '#94a3b8',
     textColor: '#e2e8f0',
-    // Sequence diagram
     signalColor: '#94a3b8',
     signalTextColor: '#e2e8f0',
     actorTextColor: '#ffffff',
@@ -66,13 +62,11 @@ const MERMAID_DARK_THEME = {
     activationBkgColor: '#1e293b',
     activationBorderColor: '#475569',
     sequenceNumberColor: '#ffffff',
-    // Node/flowchart
     primaryColor: '#1e3a5f',
     primaryBorderColor: '#3b82f6',
     secondaryColor: '#1e293b',
     secondaryBorderColor: '#6366f1',
     tertiaryColor: '#1a2332',
-    // Background
     background: '#0f172a',
     mainBkg: '#1e3a5f',
     nodeBkg: '#1e3a5f',
@@ -85,6 +79,109 @@ const MERMAID_DARK_THEME = {
     labelBoxBorderColor: '#475569',
   },
 };
+
+/**
+ * Opens a fullscreen modal for a diagram SVG.
+ * Uses pure DOM manipulation, mounted on document.body,
+ * completely bypassing React and CSS stacking context issues.
+ */
+function openDiagramFullscreen(svgContent: string) {
+  let zoom = 1;
+  let panX = 0, panY = 0;
+  let isPanning = false;
+  let startX = 0, startY = 0;
+
+  // Create overlay — directly on body
+  const overlay = document.createElement('div');
+  overlay.className = 'diagram-modal-overlay';
+
+  // Content area
+  const content = document.createElement('div');
+  content.className = 'diagram-modal-content';
+
+  // SVG container
+  const svgBox = document.createElement('div');
+  svgBox.className = 'diagram-modal-svg';
+  svgBox.innerHTML = svgContent;
+
+  const applyTransform = () => {
+    svgBox.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+  };
+
+  // Toolbar
+  const toolbar = document.createElement('div');
+  toolbar.className = 'diagram-modal-toolbar';
+
+  const zoomLabel = document.createElement('span');
+  zoomLabel.className = 'diagram-zoom-label';
+  const updateLabel = () => { zoomLabel.textContent = Math.round(zoom * 100) + '%'; };
+  updateLabel();
+
+  const makeBtn = (text: string, title: string, cls?: string) => {
+    const b = document.createElement('button');
+    b.textContent = text;
+    b.title = title;
+    if (cls) b.className = cls;
+    return b;
+  };
+
+  const btnZoomIn = makeBtn('＋', '放大');
+  const btnZoomOut = makeBtn('－', '缩小');
+  const btnReset = makeBtn('↺', '重置');
+  const btnClose = makeBtn('✕', '关闭', 'diagram-close-btn');
+
+  const cleanup = () => { document.body.removeChild(overlay); };
+
+  btnZoomIn.addEventListener('click', (e) => { e.stopPropagation(); zoom = Math.min(zoom + 0.2, 5); applyTransform(); updateLabel(); });
+  btnZoomOut.addEventListener('click', (e) => { e.stopPropagation(); zoom = Math.max(zoom - 0.2, 0.2); applyTransform(); updateLabel(); });
+  btnReset.addEventListener('click', (e) => { e.stopPropagation(); zoom = 1; panX = 0; panY = 0; applyTransform(); updateLabel(); });
+  btnClose.addEventListener('click', (e) => { e.stopPropagation(); cleanup(); });
+  overlay.addEventListener('click', cleanup);
+  content.addEventListener('click', (e) => e.stopPropagation());
+
+  // Wheel zoom
+  content.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    zoom = Math.min(Math.max(zoom + delta, 0.2), 5);
+    applyTransform();
+    updateLabel();
+  }, { passive: false });
+
+  // Pan
+  content.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    isPanning = true;
+    startX = e.clientX - panX;
+    startY = e.clientY - panY;
+    svgBox.style.cursor = 'grabbing';
+  });
+  content.addEventListener('mousemove', (e) => {
+    if (!isPanning) return;
+    panX = e.clientX - startX;
+    panY = e.clientY - startY;
+    applyTransform();
+  });
+  const endPan = () => { isPanning = false; svgBox.style.cursor = 'grab'; };
+  content.addEventListener('mouseup', endPan);
+  content.addEventListener('mouseleave', endPan);
+
+  // ESC to close
+  const escHandler = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') { cleanup(); window.removeEventListener('keydown', escHandler); }
+  };
+  window.addEventListener('keydown', escHandler);
+
+  // Assemble
+  toolbar.append(btnZoomIn, zoomLabel, btnZoomOut, btnReset, btnClose);
+  content.appendChild(svgBox);
+  overlay.appendChild(content);
+  overlay.appendChild(toolbar);
+  document.body.appendChild(overlay);
+
+  svgBox.style.cursor = 'grab';
+  applyTransform();
+}
 
 interface MarkdownViewerProps {
   handle: any;
@@ -164,7 +261,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
     }
   };
 
-  // Render mermaid diagrams — re-initialize with correct theme
+  // Render mermaid diagrams
   useEffect(() => {
     if (!html || !containerRef.current) return;
 
@@ -181,11 +278,24 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
       let idCounter = 0;
       mermaidBlocks.forEach(async (block) => {
         const graphDef = block.textContent || '';
-        const id = `mermaid-svg-${Date.now()}-${idCounter++}`;
+        const blockId = `mermaid-svg-${Date.now()}-${idCounter++}`;
         try {
-          const { svg } = await mermaid.render(id, graphDef);
+          const { svg } = await mermaid.render(blockId, graphDef);
           block.innerHTML = svg;
           block.classList.add('mermaid-rendered');
+          (block as HTMLElement).style.position = 'relative';
+
+          // Add expand button — pure DOM, opens pure-DOM modal on body
+          const expandBtn = document.createElement('button');
+          expandBtn.className = 'mermaid-expand-btn';
+          expandBtn.title = '全屏查看图表';
+          expandBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>';
+          expandBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            ev.preventDefault();
+            openDiagramFullscreen(svg);
+          });
+          block.appendChild(expandBtn);
         } catch (e) {
           console.error('Mermaid render error:', e);
           block.innerHTML = `<pre class="mermaid-error"><code>${graphDef}</code></pre>`;
