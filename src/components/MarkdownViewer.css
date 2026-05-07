@@ -162,7 +162,7 @@ body[data-mode='dark'] .markdown-body blockquote {
 .markdown-body table {
   border-spacing: 0;
   border-collapse: collapse;
-  width: 100%;
+  width: auto;
   overflow: auto;
 }
 
@@ -183,6 +183,87 @@ body[data-mode='dark'] .markdown-body table td {
 
 body[data-mode='dark'] .markdown-body table tr:nth-child(2n) {
   background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Table wrapper & toggle buttons */
+.table-wrapper {
+  position: relative;
+  margin: 16px 0;
+  transition: all 0.3s ease;
+}
+
+.table-wrapper.table-fullwidth {
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+.table-wrapper.table-fullwidth table {
+  width: 100%;
+}
+
+.table-toggle-group {
+  display: flex;
+  gap: 0;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.table-wrapper:hover .table-toggle-group {
+  opacity: 1;
+}
+
+.table-toggle-btn {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(0, 0, 0, 0.03);
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+
+.table-toggle-btn:first-child {
+  border-radius: 6px 0 0 6px;
+  border-right: none;
+}
+
+.table-toggle-btn:last-child {
+  border-radius: 0 6px 6px 0;
+}
+
+.table-toggle-btn.active {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+}
+
+.table-toggle-btn:not(.active):hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #334155;
+}
+
+body[data-mode='dark'] .table-toggle-btn {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+}
+
+body[data-mode='dark'] .table-toggle-btn.active {
+  background: #6366f1;
+  color: #fff;
+  border-color: #6366f1;
+}
+
+body[data-mode='dark'] .table-toggle-btn:not(.active):hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
 }
 
 /* Mermaid diagram styles */

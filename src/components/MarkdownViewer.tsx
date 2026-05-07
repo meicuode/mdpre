@@ -378,6 +378,50 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
     });
   }, [html]);
 
+  // Table width toggle buttons
+  useEffect(() => {
+    if (!html || !containerRef.current) return;
+    const tables = containerRef.current.querySelectorAll('table');
+
+    tables.forEach((table: HTMLTableElement) => {
+      if (table.parentElement?.classList.contains('table-wrapper')) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'table-wrapper';
+      table.parentNode?.insertBefore(wrapper, table);
+      wrapper.appendChild(table);
+
+      // Toggle button group
+      const btnGroup = document.createElement('div');
+      btnGroup.className = 'table-toggle-group';
+
+      const btnFull = document.createElement('button');
+      btnFull.className = 'table-toggle-btn';
+      btnFull.textContent = '全宽';
+      btnFull.title = '表格占满整个宽度';
+
+      const btnStd = document.createElement('button');
+      btnStd.className = 'table-toggle-btn active';
+      btnStd.textContent = '标准';
+      btnStd.title = '表格按内容宽度显示';
+
+      btnFull.addEventListener('click', () => {
+        wrapper.classList.add('table-fullwidth');
+        btnFull.classList.add('active');
+        btnStd.classList.remove('active');
+      });
+
+      btnStd.addEventListener('click', () => {
+        wrapper.classList.remove('table-fullwidth');
+        btnStd.classList.add('active');
+        btnFull.classList.remove('active');
+      });
+
+      btnGroup.append(btnFull, btnStd);
+      wrapper.insertBefore(btnGroup, table);
+    });
+  }, [html]);
+
   if (needsPermission) {
     return (
       <div style={{ padding: '48px', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'inherit' }}>
