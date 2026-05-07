@@ -90,6 +90,7 @@ function openDiagramFullscreen(svgContent: string) {
   let panX = 0, panY = 0;
   let isPanning = false;
   let startX = 0, startY = 0;
+  let fitZoom = 1; // calculated fit-to-screen zoom
 
   // Create overlay — directly on body
   const overlay = document.createElement('div');
@@ -127,13 +128,26 @@ function openDiagramFullscreen(svgContent: string) {
 
   const btnZoomIn = makeBtn('＋', '放大');
   const btnZoomOut = makeBtn('－', '缩小');
-  const btnReset = makeBtn('↺', '重置');
+  const btnFit = makeBtn('⊡', '适应屏幕');
+  const btnReset = makeBtn('↺', '原始大小');
   const btnClose = makeBtn('✕', '关闭', 'diagram-close-btn');
 
-  const cleanup = () => { document.body.removeChild(overlay); };
+  const cleanup = () => {
+    document.body.removeChild(overlay);
+    window.removeEventListener('keydown', escHandler);
+  };
 
-  btnZoomIn.addEventListener('click', (e) => { e.stopPropagation(); zoom = Math.min(zoom + 0.2, 5); applyTransform(); updateLabel(); });
-  btnZoomOut.addEventListener('click', (e) => { e.stopPropagation(); zoom = Math.max(zoom - 0.2, 0.2); applyTransform(); updateLabel(); });
+  const fitToScreen = () => {
+    zoom = fitZoom;
+    panX = 0;
+    panY = 0;
+    applyTransform();
+    updateLabel();
+  };
+
+  btnZoomIn.addEventListener('click', (e) => { e.stopPropagation(); zoom = Math.min(zoom + 0.2, 10); applyTransform(); updateLabel(); });
+  btnZoomOut.addEventListener('click', (e) => { e.stopPropagation(); zoom = Math.max(zoom - 0.2, 0.1); applyTransform(); updateLabel(); });
+  btnFit.addEventListener('click', (e) => { e.stopPropagation(); fitToScreen(); });
   btnReset.addEventListener('click', (e) => { e.stopPropagation(); zoom = 1; panX = 0; panY = 0; applyTransform(); updateLabel(); });
   btnClose.addEventListener('click', (e) => { e.stopPropagation(); cleanup(); });
   overlay.addEventListener('click', cleanup);
@@ -143,7 +157,7 @@ function openDiagramFullscreen(svgContent: string) {
   content.addEventListener('wheel', (e) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    zoom = Math.min(Math.max(zoom + delta, 0.2), 5);
+    zoom = Math.min(Math.max(zoom + delta, 0.1), 10);
     applyTransform();
     updateLabel();
   }, { passive: false });
@@ -168,19 +182,46 @@ function openDiagramFullscreen(svgContent: string) {
 
   // ESC to close
   const escHandler = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') { cleanup(); window.removeEventListener('keydown', escHandler); }
+    if (e.key === 'Escape') { cleanup(); }
   };
   window.addEventListener('keydown', escHandler);
 
   // Assemble
-  toolbar.append(btnZoomIn, zoomLabel, btnZoomOut, btnReset, btnClose);
+  toolbar.append(btnZoomIn, zoomLabel, btnZoomOut, btnFit, btnReset, btnClose);
   content.appendChild(svgBox);
   overlay.appendChild(content);
   overlay.appendChild(toolbar);
   document.body.appendChild(overlay);
 
   svgBox.style.cursor = 'grab';
-  applyTransform();
+
+  // Auto-fit: measure SVG natural size and calculate optimal zoom
+  requestAnimationFrame(() => {
+    const svgEl = svgBox.querySelector('svg');
+    if (svgEl) {
+      // Get SVG natural dimensions
+      const svgW = svgEl.getBoundingClientRect().width;
+      const svgH = svgEl.getBoundingClientRect().height;
+
+      if (svgW > 0 && svgH > 0) {
+        // Available viewport with padding (90% of viewport, minus toolbar space)
+        const viewW = window.innerWidth * 0.9;
+        const viewH = window.innerHeight * 0.85;
+
+        const scaleX = viewW / svgW;
+        const scaleY = viewH / svgH;
+        fitZoom = Math.min(scaleX, scaleY);
+
+        // Clamp: don't zoom smaller than 50% or larger than 500%
+        fitZoom = Math.min(Math.max(fitZoom, 0.5), 5);
+
+        // Apply auto-fit
+        zoom = fitZoom;
+        applyTransform();
+        updateLabel();
+      }
+    }
+  });
 }
 
 interface MarkdownViewerProps {
