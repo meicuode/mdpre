@@ -246,13 +246,9 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
   const [atTop, setAtTop] = useState(true);
   const [atBottom, setAtBottom] = useState(false);
 
-  // Quote review state — restore from localStorage
-  const [quoteText, setQuoteText] = useState(() => {
-    try { return localStorage.getItem('mdpre-review') || ''; } catch { return ''; }
-  });
-  const [showPanel, setShowPanel] = useState(() => {
-    try { return localStorage.getItem('mdpre-panel-open') === '1'; } catch { return false; }
-  });
+  // Quote review state — restore from localStorage (per-document)
+  const [quoteText, setQuoteText] = useState('');
+  const [showPanel, setShowPanel] = useState(false);
   const [quoteBtnPos, setQuoteBtnPos] = useState<{ x: number; y: number } | null>(null);
   const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(() => {
     try {
@@ -269,14 +265,29 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const reviewLoaded = useRef(false);
 
-  // Persist review content & panel state
+  // Load per-document review state when document changes
   useEffect(() => {
-    try { localStorage.setItem('mdpre-review', quoteText); } catch { /* */ }
-  }, [quoteText]);
+    if (!docKey) return;
+    reviewLoaded.current = false;
+    try {
+      setQuoteText(localStorage.getItem(`mdpre-review-${docKey}`) || '');
+      setShowPanel(localStorage.getItem(`mdpre-panel-${docKey}`) === '1');
+    } catch { /* */ }
+    // Mark loaded after state updates flush
+    setTimeout(() => { reviewLoaded.current = true; }, 50);
+  }, [docKey]);
+
+  // Persist review content & panel state (per-document) — only after loaded
   useEffect(() => {
-    try { localStorage.setItem('mdpre-panel-open', showPanel ? '1' : '0'); } catch { /* */ }
-  }, [showPanel]);
+    if (!docKey || !reviewLoaded.current) return;
+    try { localStorage.setItem(`mdpre-review-${docKey}`, quoteText); } catch { /* */ }
+  }, [quoteText, docKey]);
+  useEffect(() => {
+    if (!docKey || !reviewLoaded.current) return;
+    try { localStorage.setItem(`mdpre-panel-${docKey}`, showPanel ? '1' : '0'); } catch { /* */ }
+  }, [showPanel, docKey]);
   useEffect(() => {
     try { if (panelPos) localStorage.setItem('mdpre-panel-pos', JSON.stringify(panelPos)); } catch { /* */ }
   }, [panelPos]);
@@ -304,13 +315,27 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
   useEffect(() => {
     if (!html || !docKey) return;
     const scrollParent = containerRef.current?.closest('.fullscreen-viewer');
-    if (!scrollParent) return;
+    if (!scrollParent || !containerRef.current) return;
     try {
       const pos = localStorage.getItem(`mdpre-scroll-${docKey}`);
       if (pos) {
         const top = parseInt(pos, 10);
-        // Delay to let DOM render
-        setTimeout(() => scrollParent.scrollTo({ top, behavior: 'instant' }), 100);
+        setTimeout(() => {
+          scrollParent.scrollTo({ top, behavior: 'instant' });
+          // Manually sync active heading for outline highlight
+          const els = containerRef.current?.querySelectorAll('h1[id],h2[id],h3[id],h4[id],h5[id],h6[id]');
+          if (els) {
+            let lastVisible = '';
+            for (const el of els) {
+              if ((el as HTMLElement).offsetTop - containerRef.current!.offsetTop <= top + 80) {
+                lastVisible = el.id;
+              } else {
+                break;
+              }
+            }
+            if (lastVisible) setActiveId(lastVisible);
+          }
+        }, 150);
       }
     } catch { /* */ }
   }, [html, docKey]);
