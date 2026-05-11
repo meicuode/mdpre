@@ -286,6 +286,10 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
     if (!docKey || !reviewLoaded.current) return;
     try { if (panelPos) localStorage.setItem(`mdpre-panel-pos-${docKey}`, JSON.stringify(panelPos)); } catch { /* */ }
   }, [panelPos, docKey]);
+  useEffect(() => {
+    if (!docKey || !reviewLoaded.current) return;
+    try { if (panelSize) localStorage.setItem(`mdpre-panel-size-${docKey}`, JSON.stringify(panelSize)); } catch { /* */ }
+  }, [panelSize, docKey]);
 
   // Save panel size on resize (observer)
   useEffect(() => {
@@ -294,19 +298,22 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
     const observer = new ResizeObserver((entries) => {
       if (skip) { skip = false; return; }
       for (const entry of entries) {
-        const { width, height } = entry.contentRect;
+        // Use offsetWidth/offsetHeight instead of contentRect to include borders.
+        // contentRect does not include borders, causing an infinite shrinking loop if assigned back to style.width!
+        const el = entry.target as HTMLElement;
+        const width = el.offsetWidth;
+        const height = el.offsetHeight;
         if (width > 0 && height > 0) {
-          const size = { w: Math.round(width), h: Math.round(height) };
-          setPanelSize(size);
-          if (docKey && reviewLoaded.current) {
-            try { localStorage.setItem(`mdpre-panel-size-${docKey}`, JSON.stringify(size)); } catch { /* */ }
-          }
+          setPanelSize(prev => {
+            if (prev && prev.w === width && prev.h === height) return prev;
+            return { w: width, h: height };
+          });
         }
       }
     });
     observer.observe(panelRef.current);
     return () => observer.disconnect();
-  }, [showPanel, docKey]);
+  }, [showPanel]);
 
   // Restore scroll position after content loads
   useEffect(() => {
