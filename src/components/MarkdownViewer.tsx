@@ -236,6 +236,9 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
   const containerRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<any>(handle);
 
+  // Document key for per-file state
+  const docKey = handle?.name || '';
+
   // Outline & scroll state
   const [headings, setHeadings] = useState<{ id: string; text: string; level: number }[]>([]);
   const [activeId, setActiveId] = useState('');
@@ -243,20 +246,90 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
   const [atTop, setAtTop] = useState(true);
   const [atBottom, setAtBottom] = useState(false);
 
-  // Quote review state
+  // Quote review state — restore from localStorage
   const [quoteText, setQuoteText] = useState(() => {
     try { return localStorage.getItem('mdpre-review') || ''; } catch { return ''; }
   });
-  const [showPanel, setShowPanel] = useState(false);
+  const [showPanel, setShowPanel] = useState(() => {
+    try { return localStorage.getItem('mdpre-panel-open') === '1'; } catch { return false; }
+  });
   const [quoteBtnPos, setQuoteBtnPos] = useState<{ x: number; y: number } | null>(null);
-  const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(null);
+  const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(() => {
+    try {
+      const s = localStorage.getItem('mdpre-panel-pos');
+      return s ? JSON.parse(s) : null;
+    } catch { return null; }
+  });
+  const [panelSize, setPanelSize] = useState<{ w: number; h: number } | null>(() => {
+    try {
+      const s = localStorage.getItem('mdpre-panel-size');
+      return s ? JSON.parse(s) : null;
+    } catch { return null; }
+  });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  // Persist review content
+  // Persist review content & panel state
   useEffect(() => {
-    try { localStorage.setItem('mdpre-review', quoteText); } catch { /* ignore */ }
+    try { localStorage.setItem('mdpre-review', quoteText); } catch { /* */ }
   }, [quoteText]);
+  useEffect(() => {
+    try { localStorage.setItem('mdpre-panel-open', showPanel ? '1' : '0'); } catch { /* */ }
+  }, [showPanel]);
+  useEffect(() => {
+    try { if (panelPos) localStorage.setItem('mdpre-panel-pos', JSON.stringify(panelPos)); } catch { /* */ }
+  }, [panelPos]);
+
+  // Save panel size on resize (observer)
+  useEffect(() => {
+    if (!showPanel || !panelRef.current) return;
+    let skip = true; // Skip initial callback that fires before inline style applies
+    const observer = new ResizeObserver((entries) => {
+      if (skip) { skip = false; return; }
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          const size = { w: Math.round(width), h: Math.round(height) };
+          setPanelSize(size);
+          try { localStorage.setItem('mdpre-panel-size', JSON.stringify(size)); } catch { /* */ }
+        }
+      }
+    });
+    observer.observe(panelRef.current);
+    return () => observer.disconnect();
+  }, [showPanel]);
+
+  // Restore scroll position after content loads
+  useEffect(() => {
+    if (!html || !docKey) return;
+    const scrollParent = containerRef.current?.closest('.fullscreen-viewer');
+    if (!scrollParent) return;
+    try {
+      const pos = localStorage.getItem(`mdpre-scroll-${docKey}`);
+      if (pos) {
+        const top = parseInt(pos, 10);
+        // Delay to let DOM render
+        setTimeout(() => scrollParent.scrollTo({ top, behavior: 'instant' }), 100);
+      }
+    } catch { /* */ }
+  }, [html, docKey]);
+
+  // Save scroll position (debounced)
+  useEffect(() => {
+    if (!docKey) return;
+    const scrollParent = containerRef.current?.closest('.fullscreen-viewer');
+    if (!scrollParent) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const onScroll = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        try { localStorage.setItem(`mdpre-scroll-${docKey}`, String(Math.round(scrollParent.scrollTop))); } catch { /* */ }
+      }, 300);
+    };
+    scrollParent.addEventListener('scroll', onScroll, { passive: true });
+    return () => { clearTimeout(timer); scrollParent.removeEventListener('scroll', onScroll); };
+  }, [html, docKey]);
 
   handleRef.current = handle;
 
@@ -802,8 +875,12 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
       {/* Review panel */}
       {showPanel && createPortal(
         <div
+          ref={panelRef}
           className="review-panel"
-          style={panelPos ? { left: panelPos.x, top: panelPos.y, right: 'auto', bottom: 'auto' } : undefined}
+          style={{
+            ...(panelPos ? { left: panelPos.x, top: panelPos.y, right: 'auto', bottom: 'auto' } : {}),
+            ...(panelSize ? { width: panelSize.w, height: panelSize.h } : {}),
+          }}
         >
           <div
             className="review-header"
