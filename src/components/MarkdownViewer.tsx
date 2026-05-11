@@ -331,7 +331,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
           if (els) {
             let lastVisible = '';
             for (const el of els) {
-              if ((el as HTMLElement).offsetTop - containerRef.current!.offsetTop <= top + 80) {
+              // Use small 10px offset here too, matching the main scroll observer
+              if ((el as HTMLElement).offsetTop - containerRef.current!.offsetTop <= top + 10) {
                 lastVisible = el.id;
               } else {
                 break;
@@ -643,23 +644,33 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
     }));
     setHeadings(items);
 
-    // IntersectionObserver to highlight active heading
     const scrollParent = containerRef.current.closest('.fullscreen-viewer');
     if (!scrollParent || items.length === 0) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActiveId(entry.target.id);
+    let timer: ReturnType<typeof setTimeout>;
+    const onScroll = () => {
+      // Use requestAnimationFrame for smooth scroll tracking
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = 0 as any;
+        const top = scrollParent.scrollTop;
+        const containerTop = containerRef.current!.offsetTop;
+        let lastVisible = '';
+        for (const el of els) {
+          // Use a small offset (10px) so closely stacked headings don't overshadow each other
+          if ((el as HTMLElement).offsetTop - containerTop <= top + 10) {
+            lastVisible = el.id;
+          } else {
             break;
           }
         }
-      },
-      { root: scrollParent, rootMargin: '0px 0px -70% 0px', threshold: 0 }
-    );
-    els.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+        if (lastVisible) setActiveId(lastVisible);
+      }, 50);
+    };
+
+    onScroll();
+    scrollParent.addEventListener('scroll', onScroll, { passive: true });
+    return () => scrollParent.removeEventListener('scroll', onScroll);
   }, [html]);
 
   // Scroll helper
