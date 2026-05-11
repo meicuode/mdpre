@@ -772,7 +772,7 @@ body[data-mode='dark'] .quote-btn:hover {
 .review-panel {
   position: fixed;
   bottom: 16px;
-  right: 16px;
+  left: 16px;
   width: 600px;
   height: 400px;
   min-width: 320px;
@@ -787,24 +787,56 @@ body[data-mode='dark'] .quote-btn:hover {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   resize: both;
   overflow: hidden;
-  direction: rtl; /* resize handle on bottom-left */
   animation: panelSlideIn 0.2s ease-out;
-}
-
-.review-panel > * {
-  direction: ltr;
-}
-
-.review-panel.minimized {
-  height: auto !important;
-  min-height: 0;
-  resize: none;
 }
 
 body[data-mode='dark'] .review-panel {
   background: rgba(30, 41, 59, 0.95);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* Review toggle icon — always visible bottom-left */
+.review-icon-btn {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 1002;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  font-size: 20px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: all 0.2s;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  padding: 0;
+}
+
+.review-icon-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.review-icon-btn.has-content {
+  opacity: 0.85;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+body[data-mode='dark'] .review-icon-btn {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+body[data-mode='dark'] .review-icon-btn:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 @keyframes panelSlideIn {

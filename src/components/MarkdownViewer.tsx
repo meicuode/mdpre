@@ -248,7 +248,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
     try { return localStorage.getItem('mdpre-review') || ''; } catch { return ''; }
   });
   const [showPanel, setShowPanel] = useState(false);
-  const [panelMinimized, setPanelMinimized] = useState(false);
   const [quoteBtnPos, setQuoteBtnPos] = useState<{ x: number; y: number } | null>(null);
   const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -701,7 +700,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
 
     setQuoteText(newText);
     setShowPanel(true);
-    setPanelMinimized(false);
     setQuoteBtnPos(null);
     sel.removeAllRanges();
 
@@ -790,10 +788,21 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
         document.body
       )}
 
+      {/* Review icon — always visible bottom-left */}
+      {createPortal(
+        <button
+          className={`review-icon-btn ${quoteText ? 'has-content' : ''}`}
+          style={{ display: showPanel ? 'none' : undefined }}
+          onClick={() => { setShowPanel(true); }}
+          title="打开审阅面板"
+        >📝</button>,
+        document.body
+      )}
+
       {/* Review panel */}
       {showPanel && createPortal(
         <div
-          className={`review-panel ${panelMinimized ? 'minimized' : ''}`}
+          className="review-panel"
           style={panelPos ? { left: panelPos.x, top: panelPos.y, right: 'auto', bottom: 'auto' } : undefined}
         >
           <div
@@ -829,21 +838,16 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
               <button title="清空" onClick={() => {
                 if (quoteText && confirm('确定清空所有审阅内容？')) setQuoteText('');
               }}>🗑</button>
-              <button title={panelMinimized ? '展开' : '最小化'} onClick={() => setPanelMinimized(!panelMinimized)}>
-                {panelMinimized ? '□' : '─'}
-              </button>
-              <button title="关闭" onClick={() => setShowPanel(false)}>✕</button>
+              <button title="最小化" onClick={() => setShowPanel(false)}>─</button>
             </div>
           </div>
-          {!panelMinimized && (
-            <textarea
-              ref={textareaRef}
-              className="review-textarea"
-              value={quoteText}
-              onChange={(e) => setQuoteText(e.target.value)}
-              placeholder="选中文档中的文字，点击「📎 引用」按钮添加审阅内容..."
-            />
-          )}
+          <textarea
+            ref={textareaRef}
+            className="review-textarea"
+            value={quoteText}
+            onChange={(e) => setQuoteText(e.target.value)}
+            placeholder="选中文档中的文字，点击「📎 引用」按钮添加审阅内容..."
+          />
         </div>,
         document.body
       )}
