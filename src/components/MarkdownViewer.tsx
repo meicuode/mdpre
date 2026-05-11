@@ -250,18 +250,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
   const [quoteText, setQuoteText] = useState('');
   const [showPanel, setShowPanel] = useState(false);
   const [quoteBtnPos, setQuoteBtnPos] = useState<{ x: number; y: number } | null>(null);
-  const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(() => {
-    try {
-      const s = localStorage.getItem('mdpre-panel-pos');
-      return s ? JSON.parse(s) : null;
-    } catch { return null; }
-  });
-  const [panelSize, setPanelSize] = useState<{ w: number; h: number } | null>(() => {
-    try {
-      const s = localStorage.getItem('mdpre-panel-size');
-      return s ? JSON.parse(s) : null;
-    } catch { return null; }
-  });
+  const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(null);
+  const [panelSize, setPanelSize] = useState<{ w: number; h: number } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -274,6 +264,10 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
     try {
       setQuoteText(localStorage.getItem(`mdpre-review-${docKey}`) || '');
       setShowPanel(localStorage.getItem(`mdpre-panel-${docKey}`) === '1');
+      const pos = localStorage.getItem(`mdpre-panel-pos-${docKey}`);
+      setPanelPos(pos ? JSON.parse(pos) : null);
+      const size = localStorage.getItem(`mdpre-panel-size-${docKey}`);
+      setPanelSize(size ? JSON.parse(size) : null);
     } catch { /* */ }
     // Mark loaded after state updates flush
     setTimeout(() => { reviewLoaded.current = true; }, 50);
@@ -289,8 +283,9 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
     try { localStorage.setItem(`mdpre-panel-${docKey}`, showPanel ? '1' : '0'); } catch { /* */ }
   }, [showPanel, docKey]);
   useEffect(() => {
-    try { if (panelPos) localStorage.setItem('mdpre-panel-pos', JSON.stringify(panelPos)); } catch { /* */ }
-  }, [panelPos]);
+    if (!docKey || !reviewLoaded.current) return;
+    try { if (panelPos) localStorage.setItem(`mdpre-panel-pos-${docKey}`, JSON.stringify(panelPos)); } catch { /* */ }
+  }, [panelPos, docKey]);
 
   // Save panel size on resize (observer)
   useEffect(() => {
@@ -303,13 +298,15 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
         if (width > 0 && height > 0) {
           const size = { w: Math.round(width), h: Math.round(height) };
           setPanelSize(size);
-          try { localStorage.setItem('mdpre-panel-size', JSON.stringify(size)); } catch { /* */ }
+          if (docKey && reviewLoaded.current) {
+            try { localStorage.setItem(`mdpre-panel-size-${docKey}`, JSON.stringify(size)); } catch { /* */ }
+          }
         }
       }
     });
     observer.observe(panelRef.current);
     return () => observer.disconnect();
-  }, [showPanel]);
+  }, [showPanel, docKey]);
 
   // Restore scroll position after content loads
   useEffect(() => {
