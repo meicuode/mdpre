@@ -241,6 +241,28 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
   useEffect(() => {
     const renderer = new marked.Renderer();
 
+    // Generate slug from heading text (compatible with Chinese)
+    const slugify = (text: string) => {
+      return text
+        .toLowerCase()
+        .trim()
+        .replace(/<[^>]*>/g, '')       // strip HTML tags
+        .replace(/&[^;]+;/g, '')       // strip HTML entities
+        .replace(/[^\w\u4e00-\u9fff\u3400-\u4dbf\s-]/g, '') // keep alphanumeric, CJK, spaces, hyphens
+        .replace(/\s+/g, '-')          // spaces to hyphens
+        .replace(/-+/g, '-')           // collapse multiple hyphens
+        .replace(/^-|-$/g, '');        // trim leading/trailing hyphens
+    };
+
+    // Heading with id for anchor links
+    renderer.heading = function (data: any) {
+      const text = typeof data === 'string' ? data : data?.text ?? '';
+      const depth = typeof data === 'string' ? 1 : data?.depth ?? 1;
+      const id = slugify(text);
+      return `<h${depth} id="${id}"><a class="heading-anchor" href="#${id}">#</a>${text}</h${depth}>`;
+    };
+
+    // Code blocks with mermaid support
     renderer.code = function (code: any) {
       const text = typeof code === 'string' ? code : code?.text ?? '';
       const lang = typeof code === 'string' ? '' : code?.lang ?? '';
@@ -255,6 +277,29 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
         } catch (_) { /* ignore */ }
       }
       return `<pre><code class="hljs language-${lang}">${highlighted}</code></pre>`;
+    };
+
+    // Task list checkboxes & ensure inline markdown is parsed
+    renderer.listitem = function (this: any, data: any) {
+      const tokens = data?.tokens;
+      const task = data?.task ?? false;
+      const checked = data?.checked ?? false;
+
+      // Parse tokens to HTML (handles inline links, bold, etc.)
+      let content: string;
+      if (tokens && this.parser) {
+        content = this.parser.parseInline(tokens);
+      } else {
+        content = typeof data === 'string' ? data : data?.text ?? '';
+      }
+
+      if (task) {
+        const checkbox = checked
+          ? '<input type="checkbox" checked disabled class="task-checkbox" />'
+          : '<input type="checkbox" disabled class="task-checkbox" />';
+        return `<li class="task-list-item">${checkbox}${content}</li>`;
+      }
+      return `<li>${content}</li>`;
     };
 
     marked.setOptions({ renderer, breaks: true, gfm: true } as any);
@@ -274,8 +319,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
       const content = await file.text();
       const rawHtml = await marked.parse(content);
       const cleanHtml = DOMPurify.sanitize(rawHtml, {
-        ADD_TAGS: ['div'],
-        ADD_ATTR: ['class'],
+        ADD_TAGS: ['div', 'input'],
+        ADD_ATTR: ['class', 'id', 'href', 'type', 'checked', 'disabled'],
       });
       setHtml(cleanHtml);
       setNeedsPermission(false);
@@ -420,6 +465,33 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
       btnGroup.append(btnFull, btnStd);
       wrapper.insertBefore(btnGroup, table);
     });
+  }, [html]);
+
+  // Anchor link click handler — smooth scroll within viewer
+  useEffect(() => {
+    if (!html || !containerRef.current) return;
+    const container = containerRef.current;
+
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const anchor = target.closest('a[href^="#"]') as HTMLAnchorElement | null;
+      if (!anchor) return;
+
+      e.preventDefault();
+      const id = decodeURIComponent(anchor.getAttribute('href')!.slice(1));
+      const heading = container.querySelector(`[id="${CSS.escape(id)}"]`);
+      if (heading) {
+        // Scroll the fullscreen-viewer (scroll parent)
+        const scrollParent = container.closest('.fullscreen-viewer') || container.parentElement;
+        if (scrollParent) {
+          const headingTop = (heading as HTMLElement).offsetTop - container.offsetTop;
+          scrollParent.scrollTo({ top: headingTop, behavior: 'smooth' });
+        }
+      }
+    };
+
+    container.addEventListener('click', handleClick);
+    return () => container.removeEventListener('click', handleClick);
   }, [html]);
 
   if (needsPermission) {

@@ -20,6 +20,8 @@ body[data-mode='dark'] .markdown-body {
   margin-bottom: 16px;
   font-weight: 600;
   line-height: 1.25;
+  scroll-margin-top: 12px;
+  position: relative;
 }
 
 .markdown-body h1, .markdown-body h2 {
@@ -30,6 +32,40 @@ body[data-mode='dark'] .markdown-body {
 body[data-mode='dark'] .markdown-body h1, 
 body[data-mode='dark'] .markdown-body h2 {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Heading anchor link */
+.heading-anchor {
+  position: absolute;
+  left: -1.2em;
+  color: #94a3b8 !important;
+  font-weight: 400;
+  font-size: 0.85em;
+  text-decoration: none !important;
+  opacity: 0;
+  transition: opacity 0.15s;
+  user-select: none;
+}
+
+.markdown-body h1:hover .heading-anchor,
+.markdown-body h2:hover .heading-anchor,
+.markdown-body h3:hover .heading-anchor,
+.markdown-body h4:hover .heading-anchor,
+.markdown-body h5:hover .heading-anchor,
+.markdown-body h6:hover .heading-anchor {
+  opacity: 1;
+}
+
+.heading-anchor:hover {
+  color: #3b82f6 !important;
+}
+
+body[data-mode='dark'] .heading-anchor {
+  color: #64748b !important;
+}
+
+body[data-mode='dark'] .heading-anchor:hover {
+  color: #818cf8 !important;
 }
 
 .markdown-body p,
@@ -54,6 +90,27 @@ body[data-mode='dark'] .markdown-body h2 {
 
 body[data-mode='dark'] .markdown-body a {
   color: #63b3ed;
+}
+
+/* Task list checkbox */
+.task-list-item {
+  list-style: none;
+  margin-left: -1.5em;
+  padding-left: 0;
+}
+
+.task-checkbox {
+  margin-right: 8px;
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+  accent-color: #3b82f6;
+}
+
+body[data-mode='dark'] .task-checkbox {
+  accent-color: #818cf8;
 }
 
 .markdown-body img {
