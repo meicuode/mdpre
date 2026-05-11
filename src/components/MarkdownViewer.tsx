@@ -481,11 +481,20 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
       const id = decodeURIComponent(anchor.getAttribute('href')!.slice(1));
       const heading = container.querySelector(`[id="${CSS.escape(id)}"]`);
       if (heading) {
-        // Scroll the fullscreen-viewer (scroll parent)
         const scrollParent = container.closest('.fullscreen-viewer') || container.parentElement;
         if (scrollParent) {
           const headingTop = (heading as HTMLElement).offsetTop - container.offsetTop;
-          scrollParent.scrollTo({ top: headingTop, behavior: 'smooth' });
+          const distance = Math.abs(scrollParent.scrollTop - headingTop);
+          if (distance > 1500) {
+            // Two-phase: instant jump to near target, then short smooth slide
+            const overshoot = 150;
+            scrollParent.scrollTo({ top: Math.max(0, headingTop - overshoot), behavior: 'instant' });
+            requestAnimationFrame(() => {
+              scrollParent.scrollTo({ top: headingTop, behavior: 'smooth' });
+            });
+          } else {
+            scrollParent.scrollTo({ top: headingTop, behavior: 'smooth' });
+          }
         }
       }
     };
