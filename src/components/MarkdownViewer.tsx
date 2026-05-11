@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js';
@@ -235,6 +236,13 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
   const containerRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<any>(handle);
 
+  // Outline & scroll state
+  const [headings, setHeadings] = useState<{ id: string; text: string; level: number }[]>([]);
+  const [activeId, setActiveId] = useState('');
+  const [outlineOpen, setOutlineOpen] = useState(true);
+  const [atTop, setAtTop] = useState(true);
+  const [atBottom, setAtBottom] = useState(false);
+
   handleRef.current = handle;
 
   // Configure marked renderer (once)
@@ -288,7 +296,11 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
       // Parse tokens to HTML (handles inline links, bold, etc.)
       let content: string;
       if (tokens && this.parser) {
-        content = this.parser.parseInline(tokens);
+        try {
+          content = this.parser.parseInline(tokens);
+        } catch (_) {
+          content = typeof data === 'string' ? data : data?.text ?? '';
+        }
       } else {
         content = typeof data === 'string' ? data : data?.text ?? '';
       }
@@ -503,6 +515,74 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
     return () => container.removeEventListener('click', handleClick);
   }, [html]);
 
+  // Extract headings for outline & track active heading
+  useEffect(() => {
+    if (!html || !containerRef.current) return;
+    const els = containerRef.current.querySelectorAll('h1[id],h2[id],h3[id],h4[id],h5[id],h6[id]');
+    const items = Array.from(els).map((el) => ({
+      id: el.id,
+      text: el.textContent?.replace(/^#\s*/, '') || '',
+      level: parseInt(el.tagName[1]),
+    }));
+    setHeadings(items);
+
+    // IntersectionObserver to highlight active heading
+    const scrollParent = containerRef.current.closest('.fullscreen-viewer');
+    if (!scrollParent || items.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveId(entry.target.id);
+            break;
+          }
+        }
+      },
+      { root: scrollParent, rootMargin: '0px 0px -70% 0px', threshold: 0 }
+    );
+    els.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [html]);
+
+  // Scroll helper
+  const scrollTo = (target: 'top' | 'bottom' | string) => {
+    const scrollParent = containerRef.current?.closest('.fullscreen-viewer');
+    if (!scrollParent) return;
+    if (target === 'top') {
+      scrollParent.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (target === 'bottom') {
+      scrollParent.scrollTo({ top: scrollParent.scrollHeight, behavior: 'smooth' });
+    } else {
+      const el = containerRef.current?.querySelector(`[id="${CSS.escape(target)}"]`);
+      if (el && containerRef.current) {
+        const headingTop = (el as HTMLElement).offsetTop - containerRef.current.offsetTop;
+        const distance = Math.abs(scrollParent.scrollTop - headingTop);
+        if (distance > 1500) {
+          scrollParent.scrollTo({ top: Math.max(0, headingTop - 150), behavior: 'instant' });
+          requestAnimationFrame(() => scrollParent.scrollTo({ top: headingTop, behavior: 'smooth' }));
+        } else {
+          scrollParent.scrollTo({ top: headingTop, behavior: 'smooth' });
+        }
+      }
+    }
+  };
+
+  // Track scroll position for button sizing
+  useEffect(() => {
+    const scrollParent = containerRef.current?.closest('.fullscreen-viewer');
+    if (!scrollParent) return;
+    const onScroll = () => {
+      const top = scrollParent.scrollTop;
+      const bottom = scrollParent.scrollHeight - scrollParent.clientHeight - top;
+      setAtTop(top < 100);
+      setAtBottom(bottom < 100);
+    };
+    onScroll();
+    scrollParent.addEventListener('scroll', onScroll, { passive: true });
+    return () => scrollParent.removeEventListener('scroll', onScroll);
+  }, [html]);
+
   if (needsPermission) {
     return (
       <div style={{ padding: '48px', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'inherit' }}>
@@ -521,10 +601,51 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="markdown-body"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    <>
+      <div
+        ref={containerRef}
+        className="markdown-body"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+
+      {/* Portals to body — bypass backdrop-filter containing block */}
+      {headings.length > 0 && createPortal(
+        <div className={`outline-panel ${outlineOpen ? 'open' : 'collapsed'}`}>
+          <button
+            className="outline-toggle"
+            onClick={() => setOutlineOpen(!outlineOpen)}
+            title={outlineOpen ? '收起大纲' : '展开大纲'}
+          >
+            {outlineOpen ? '›' : '‹'}
+          </button>
+          {outlineOpen && (
+            <div className="outline-content">
+              <div className="outline-title">目录</div>
+              <ul className="outline-list">
+                {headings.map((h) => (
+                  <li
+                    key={h.id}
+                    className={`outline-item level-${h.level} ${activeId === h.id ? 'active' : ''}`}
+                    onClick={() => scrollTo(h.id)}
+                    title={h.text}
+                  >
+                    {h.text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>,
+        document.body
+      )}
+
+      {createPortal(
+        <div className="scroll-buttons">
+          <button className={`scroll-btn ${atTop ? 'minor' : 'major'}`} onClick={() => scrollTo('top')} title="回到顶部">↑</button>
+          <button className={`scroll-btn ${atBottom ? 'minor' : 'major'}`} onClick={() => scrollTo('bottom')} title="跳到底部">↓</button>
+        </div>,
+        document.body
+      )}
+    </>
   );
 };
