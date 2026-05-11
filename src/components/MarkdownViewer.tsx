@@ -243,6 +243,22 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
   const [atTop, setAtTop] = useState(true);
   const [atBottom, setAtBottom] = useState(false);
 
+  // Quote review state
+  const [quoteText, setQuoteText] = useState(() => {
+    try { return localStorage.getItem('mdpre-review') || ''; } catch { return ''; }
+  });
+  const [showPanel, setShowPanel] = useState(false);
+  const [panelMinimized, setPanelMinimized] = useState(false);
+  const [quoteBtnPos, setQuoteBtnPos] = useState<{ x: number; y: number } | null>(null);
+  const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+
+  // Persist review content
+  useEffect(() => {
+    try { localStorage.setItem('mdpre-review', quoteText); } catch { /* ignore */ }
+  }, [quoteText]);
+
   handleRef.current = handle;
 
   // Configure marked renderer (once)
@@ -583,6 +599,122 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
     return () => scrollParent.removeEventListener('scroll', onScroll);
   }, [html]);
 
+  // Get chapter path from a DOM node
+  const getChapterPath = (node: Node): string => {
+    const container = containerRef.current;
+    if (!container) return '';
+    const headingTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
+    const path: string[] = [];
+    let el: Element | null = node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element);
+
+    // Find the nearest preceding heading for each level
+    while (el && container.contains(el)) {
+      el = el.previousElementSibling || el.parentElement;
+      if (el && headingTags.includes(el.tagName)) {
+        const level = parseInt(el.tagName[1]);
+        const text = el.textContent?.replace(/^#\s*/, '') || '';
+        // Only add if this level hasn't been added yet (closest first)
+        if (!path.some((_, i) => i === level)) {
+          path.unshift(text);
+        }
+      }
+    }
+
+    // Better approach: collect all headings before the selection
+    const allHeadings = Array.from(container.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+    const selEl = node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element);
+    if (!selEl) return '';
+
+    // Find headings that come before the selection node
+    const result: { level: number; text: string }[] = [];
+    for (const h of allHeadings) {
+      if (selEl.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING) break;
+      const level = parseInt(h.tagName[1]);
+      const text = h.textContent?.replace(/^#\s*/, '') || '';
+      // Remove deeper or equal level headings (keep hierarchy)
+      while (result.length > 0 && result[result.length - 1].level >= level) {
+        result.pop();
+      }
+      result.push({ level, text });
+    }
+    return result.map((r) => r.text).join(' > ') || '(顶部)';
+  };
+
+  // Selection detection — show quote button
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const container = containerRef.current;
+
+    const onMouseUp = () => {
+      setTimeout(() => {
+        const sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.rangeCount) {
+          setQuoteBtnPos(null);
+          return;
+        }
+        const text = sel.toString().trim();
+        if (!text || !container.contains(sel.anchorNode)) {
+          setQuoteBtnPos(null);
+          return;
+        }
+        const range = sel.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        let x = rect.right + 8;
+        let y = rect.top;
+        // If near right edge, move below selection
+        if (x + 80 > window.innerWidth) {
+          x = rect.left + rect.width / 2 - 35;
+          y = rect.bottom + 6;
+        }
+        // Clamp to viewport
+        x = Math.max(8, Math.min(x, window.innerWidth - 90));
+        y = Math.max(8, Math.min(y, window.innerHeight - 36));
+        setQuoteBtnPos({ x, y });
+      }, 10);
+    };
+
+    const onMouseDown = (e: MouseEvent) => {
+      // Hide button if clicking outside it
+      if (!(e.target as HTMLElement).closest('.quote-btn')) {
+        setQuoteBtnPos(null);
+      }
+    };
+
+    container.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('mousedown', onMouseDown);
+    return () => {
+      container.removeEventListener('mouseup', onMouseUp);
+      document.removeEventListener('mousedown', onMouseDown);
+    };
+  }, [html]);
+
+  // Add quote to textarea
+  const addQuote = () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    const selectedText = sel.toString().trim();
+    if (!selectedText) return;
+
+    const path = getChapterPath(sel.anchorNode!);
+    const entry = `> 📍 章节路径: ${path}\n> 引用文本: "${selectedText}"\n> 改进建议: `;
+    const newText = quoteText ? quoteText + '\n\n' + entry : entry;
+
+    setQuoteText(newText);
+    setShowPanel(true);
+    setPanelMinimized(false);
+    setQuoteBtnPos(null);
+    sel.removeAllRanges();
+
+    // Focus textarea at end
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+        textareaRef.current.setSelectionRange(newText.length, newText.length);
+      }
+    }, 50);
+  };
+
   if (needsPermission) {
     return (
       <div style={{ padding: '48px', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'inherit' }}>
@@ -643,6 +775,75 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
         <div className="scroll-buttons">
           <button className={`scroll-btn ${atTop ? 'minor' : 'major'}`} onClick={() => scrollTo('top')} title="回到顶部">↑</button>
           <button className={`scroll-btn ${atBottom ? 'minor' : 'major'}`} onClick={() => scrollTo('bottom')} title="跳到底部">↓</button>
+        </div>,
+        document.body
+      )}
+
+      {/* Quote button — appears at text selection */}
+      {quoteBtnPos && createPortal(
+        <button
+          className="quote-btn"
+          style={{ left: quoteBtnPos.x, top: quoteBtnPos.y }}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={(e) => { e.stopPropagation(); addQuote(); }}
+        >📎 引用</button>,
+        document.body
+      )}
+
+      {/* Review panel */}
+      {showPanel && createPortal(
+        <div
+          className={`review-panel ${panelMinimized ? 'minimized' : ''}`}
+          style={panelPos ? { left: panelPos.x, top: panelPos.y, right: 'auto', bottom: 'auto' } : undefined}
+        >
+          <div
+            className="review-header"
+            onMouseDown={(e) => {
+              if ((e.target as HTMLElement).closest('.review-actions')) return;
+              const panel = (e.target as HTMLElement).closest('.review-panel') as HTMLElement;
+              if (!panel) return;
+              const rect = panel.getBoundingClientRect();
+              dragRef.current = { startX: e.clientX, startY: e.clientY, origX: rect.left, origY: rect.top };
+              const onMove = (ev: MouseEvent) => {
+                if (!dragRef.current) return;
+                const dx = ev.clientX - dragRef.current.startX;
+                const dy = ev.clientY - dragRef.current.startY;
+                const nx = Math.max(0, Math.min(dragRef.current.origX + dx, window.innerWidth - 200));
+                const ny = Math.max(0, Math.min(dragRef.current.origY + dy, window.innerHeight - 40));
+                setPanelPos({ x: nx, y: ny });
+              };
+              const onUp = () => {
+                dragRef.current = null;
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+              };
+              document.addEventListener('mousemove', onMove);
+              document.addEventListener('mouseup', onUp);
+            }}
+          >
+            <span className="review-title">📝 文档审阅</span>
+            <div className="review-actions">
+              <button title="复制全部" onClick={() => {
+                navigator.clipboard.writeText(quoteText);
+              }}>📋</button>
+              <button title="清空" onClick={() => {
+                if (quoteText && confirm('确定清空所有审阅内容？')) setQuoteText('');
+              }}>🗑</button>
+              <button title={panelMinimized ? '展开' : '最小化'} onClick={() => setPanelMinimized(!panelMinimized)}>
+                {panelMinimized ? '□' : '─'}
+              </button>
+              <button title="关闭" onClick={() => setShowPanel(false)}>✕</button>
+            </div>
+          </div>
+          {!panelMinimized && (
+            <textarea
+              ref={textareaRef}
+              className="review-textarea"
+              value={quoteText}
+              onChange={(e) => setQuoteText(e.target.value)}
+              placeholder="选中文档中的文字，点击「📎 引用」按钮添加审阅内容..."
+            />
+          )}
         </div>,
         document.body
       )}
