@@ -561,7 +561,7 @@ body[data-mode='dark'] .outline-toggle:hover {
 }
 
 .outline-content {
-  width: 220px;
+  width: 380px;
   max-height: calc(100vh - 100px);
   overflow-y: auto;
   background: rgba(255, 255, 255, 0.92);
