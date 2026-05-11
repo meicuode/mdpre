@@ -903,14 +903,17 @@ body[data-mode='dark'] .review-actions button:hover {
   width: 100%;
   padding: 12px;
   font-family: 'Inter', 'Menlo', monospace;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 500;
   line-height: 1.6;
-  color: #334155;
+  color: #1e293b;
   background: transparent;
   border: none;
   outline: none;
   resize: none;
   box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .review-textarea::placeholder {
@@ -918,7 +921,7 @@ body[data-mode='dark'] .review-actions button:hover {
 }
 
 body[data-mode='dark'] .review-textarea {
-  color: #e2e8f0;
+  color: #f1f5f9;
 }
 
 body[data-mode='dark'] .review-textarea::placeholder {
