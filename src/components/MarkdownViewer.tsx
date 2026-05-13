@@ -411,11 +411,12 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
       const task = data?.task ?? false;
       const checked = data?.checked ?? false;
 
-      // Parse tokens to HTML (handles inline links, bold, etc.)
+      // Parse tokens to HTML (handles inline links, bold, code blocks, nested lists, etc.)
       let content: string;
       if (tokens && this.parser) {
         try {
-          content = this.parser.parseInline(tokens);
+          // Use parse() instead of parseInline() to properly render block elements like nested lists and code blocks
+          content = this.parser.parse(tokens);
         } catch (_) {
           content = typeof data === 'string' ? data : data?.text ?? '';
         }
@@ -427,7 +428,15 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
         const checkbox = checked
           ? '<input type="checkbox" checked disabled class="task-checkbox" />'
           : '<input type="checkbox" disabled class="task-checkbox" />';
-        return `<li class="task-list-item">${checkbox}${content}</li>`;
+          
+        let finalContent = content.trim();
+        // If parse() wrapped the content in a <p> (loose list), inject checkbox inside the <p> so they stay inline
+        if (finalContent.startsWith('<p>')) {
+          finalContent = finalContent.replace(/^<p>/, `<p>${checkbox} `);
+        } else {
+          finalContent = `${checkbox} ${finalContent}`;
+        }
+        return `<li class="task-list-item">${finalContent}</li>`;
       }
       return `<li>${content}</li>`;
     };
