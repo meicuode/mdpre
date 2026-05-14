@@ -233,6 +233,7 @@ interface MarkdownViewerProps {
 export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMode }) => {
   const [html, setHtml] = useState('');
   const [needsPermission, setNeedsPermission] = useState(false);
+  const [fileNotFound, setFileNotFound] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<any>(handle);
 
@@ -463,9 +464,15 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
       });
       setHtml(cleanHtml);
       setNeedsPermission(false);
-    } catch (e) {
+      setFileNotFound(false);
+    } catch (e: any) {
       console.error(e);
-      setNeedsPermission(true);
+      if (e.name === 'NotFoundError') {
+        setFileNotFound(true);
+        setNeedsPermission(false);
+      } else {
+        setNeedsPermission(true);
+      }
     }
   };
 
@@ -834,6 +841,16 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ handle, themeMod
       }
     }, 50);
   };
+
+  if (fileNotFound) {
+    return (
+      <div style={{ padding: '48px', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'inherit', textAlign: 'center' }}>
+        <h2 style={{ fontFamily: 'Inter', fontWeight: 600, fontSize: '24px', marginBottom: '16px', color: '#ef4444' }}>文件已丢失或被移动</h2>
+        <p style={{ fontFamily: 'Inter', fontSize: '16px', marginBottom: '24px', opacity: 0.8, lineHeight: 1.6 }}>我们无法在原本的位置找到该文件（<strong>{handle?.name}</strong>）。<br/>可能文件已经被重命名、移动到其他文件夹，或者被删除了。</p>
+        <p style={{ fontFamily: 'Inter', fontSize: '14px', opacity: 0.6 }}>请从左侧侧边栏将其关闭并重新添加。</p>
+      </div>
+    );
+  }
 
   if (needsPermission) {
     return (
